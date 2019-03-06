@@ -3,7 +3,41 @@
 package net.degoes.zio
 package essentials
 
+import net.degoes.zio.essentials.effects.Console.{ReadLine, Return, WriteLine}
+
+import scala.annotation.tailrec
+import scala.io.StdIn
+
 object effects {
+
+//  def printLine(line: String): Unit = ()
+
+//  object scope {
+//
+//    sealed trait Console {
+//      self =>
+//      def *>(that: Console): Console = Sequence(self, that)
+//    }
+//
+//    case class ReadLine(input: String => Console) extends Console
+//
+//    case class PrintLine(line: String) extends Console
+//
+//    case class Sequence(l: Console, r: Console) extends Console
+//
+//    def printLine(line: String): Console = PrintLine(line)
+//
+//    def readLine(next: String => Console): Console = ReadLine(next)
+//
+//    val program: Console =
+//      printLine("Hello") *>
+//        printLine("World") *>
+//        readLine(input =>
+//          if (input == "good")
+//            printLine("Thats nice")
+//          else printLine("too bad")
+//        )
+//  }
 
   /**
    * `Console` is an immutable data structure that describes a console program
@@ -46,7 +80,7 @@ object effects {
   /**
    * Using the helper functions, write a program that just returns a unit value.
    */
-  val unit: Console[???] = ???
+  val unit: Console[Unit] = Console.Return(() => ())
 
   /**
    * Using the helper functions, write a program that just returns the value 42.
@@ -67,7 +101,9 @@ object effects {
    * Using the helper functions, write a program that greets the user by their name.
    */
   def greetUser(name: String): Console[Unit] =
-    ???
+    for {
+     done <- Console.writeLine("Hello user")
+    } yield done
 
   /***
    * Using `flatMap` and the preceding three functions, write a program that
@@ -86,20 +122,43 @@ object effects {
    * implement the following effectful procedure, which interprets
    * the description of a given `Console[A]` into A and run it.
    */
+  @tailrec
   def unsafeRun[A](program: Console[A]): A =
-    ???
+    program match {
+      case WriteLine(output, next) =>
+        println(output)
+        unsafeRun(next)
+      case ReadLine(next) =>
+        val n = StdIn.readLine()
+        unsafeRun(next(n))
+      case Return(a) => a()
+    }
 
   /**
    * implement the following combinator `collectAll` that operates on programs
+    *
+    * this is sequence
    */
   def collectAll[A](programs: List[Console[A]]): Console[List[A]] =
     ???
 
+//  def collectAll[A](programs: List[Console[A]]): Console[List[A]] =
+//    programs.foldLeft[Console[List[A]]](Console.succeed(List[A]())) { (console, program) =>
+//      for {
+//        as <- console
+//        a  <- program
+//      } yield as :+ a
+//    }
+
   /**
-   * implement the `foreach` function that compute a result for each iteration
-   */
+    * Implement the `foreach` function, which iterates over the values in a list,
+    * passing every value to a body, which effectfully computes a `B`, and
+    * collecting all such `B` values in a list.
+    *
+    * this is traverse
+    */
   def foreach[A, B](values: List[A])(body: A => Console[B]): Console[List[B]] =
-    ???
+    collectAll(values.map(body))
 
   /**
    * Using `Console.writeLine` and `Console.readLine`, map the following
@@ -114,20 +173,30 @@ object effects {
       "What is your age?",
       "What is your favorite programming language?"
     )
-  val answers: List[Console[String]] = ???
+  val answers: List[Console[String]] = {
+    // questions.map(question => Console.writeLine(question) *> Console.readLine )
+
+    questions.map{ question =>
+      for {
+        _ <- Console.writeLine(question)
+        answer <- Console.readLine
+      } yield answer
+    }
+  }
 
   /**
    * Using `collectAll`, transform `answers` into a program that returns
    * a list of strings.
    */
-  val answers2: Console[List[String]] = ???
+  val answers2: Console[List[String]] =
+    collectAll(answers)
 
   /**
    * Now using only `questions` and `foreach`, write a program that is
    * equivalent to `answers2`.
    */
-  val answers3: Console[List[String]] = foreach(???) { question =>
-    ???
+  val answers3: Console[List[String]] = foreach(questions) { question =>
+    Console.writeLine(question) *> Console.readLine
   }
 
   /**
@@ -147,7 +216,7 @@ object effects {
    * Build the version of printLn and readLn
    * then make a simple program base on that.
    */
-  def printLn(line: String): Thunk[Unit] = ???
+  def printLn(line: String): Thunk[Unit] = ??? // Thunk(() => println(line))
   def readLn: Thunk[String]              = ???
 
   val thunkProgram: Thunk[Unit] = ???
